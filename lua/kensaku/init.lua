@@ -141,4 +141,59 @@ local kensaku = function(opts)
 		:find()
 end
 
-return kensaku
+---Returns a Telescope Sorter that filters by kensaku (romaji -> Japanese regex).
+---Use with table finders (e.g. telescope-orgmode search_headings) for Japanese fuzzy search.
+---@return table Telescope Sorter
+local function sorter()
+	local Sorter = require("telescope.sorters").Sorter
+	local FILTERED = -1
+
+	return Sorter:new({
+		discard = true,
+		scoring_function = function(_, prompt, ordinal)
+			if not prompt or prompt == "" then
+				return 1
+			end
+			local regex = vim.fn["kensaku#query"](prompt, {
+				rxop = vim.g["kensaku#rxop#vim"],
+			})
+			if not regex or regex == "" then
+				return 1
+			end
+			local ok, re = pcall(vim.regex, regex)
+			if not ok or not re then
+				return 1
+			end
+			local s, e = re:match_str(ordinal)
+			if s then
+				return 1
+			end
+			return FILTERED
+		end,
+		highlighter = function(_, prompt, display)
+			if not prompt or prompt == "" then
+				return {}
+			end
+			local regex = vim.fn["kensaku#query"](prompt, {
+				rxop = vim.g["kensaku#rxop#vim"],
+			})
+			if not regex or regex == "" then
+				return {}
+			end
+			local ok, re = pcall(vim.regex, regex)
+			if not ok or not re then
+				return {}
+			end
+			local start_pos, end_pos = re:match_str(display)
+			if start_pos and end_pos then
+				return { { start = start_pos + 1, finish = end_pos + 1 } }
+			end
+			return {}
+		end,
+	})
+end
+
+return {
+	kensaku = kensaku,
+	sorter = sorter,
+}
